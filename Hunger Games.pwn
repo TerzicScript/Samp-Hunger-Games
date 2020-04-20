@@ -542,7 +542,7 @@ hook OnGameModeInit()
 	// Box Labels
 	for(new i = 0; i < sizeof(boxObject); ++i)
 	{
-		if(Create3DTextLabel("/kutija", 0xF81414FF, boxObject[i][0], boxObject[i][1], boxObject[i][2], 20.0, 0) != INVALID_3DTEXT_ID)
+		if(Create3DTextLabel("Pritisnite 'Y' da biste otvorili kutiju.", 0xF81414FF, boxObject[i][0], boxObject[i][1], boxObject[i][2], 20.0, 0) != INVALID_3DTEXT_ID)
 		{
 			printf("[HG] Label za kutiju broj %i je kreiran na X: %.2f Y: %.2f Z: %.2f", boxObject[i][1], boxObject[i][2], boxObject[i][3]);
 			continue; // Nastavi loop
@@ -572,7 +572,7 @@ hook OnGameModeInit()
 	// Mega Box Labels
 	for(new i = 0; i < sizeof(megaBoxObject); ++i)
 	{
-		if(Create3DTextLabel("/megakutija", 0xF81414FF, megaBoxObject[i][0], megaBoxObject[i][1], megaBoxObject[i][2], 20.0, 0) != INVALID_3DTEXT_ID)
+		if(Create3DTextLabel("Pritisnite 'Y' da biste otvorili kutiju.", 0xF81414FF, megaBoxObject[i][0], megaBoxObject[i][1], megaBoxObject[i][2], 20.0, 0) != INVALID_3DTEXT_ID)
 		{
 			printf("[HG] Label za mega kutiju broj %i je kreiran na X: %.2f Y: %.2f Z: %.2f", megaBoxObject[i][1], megaBoxObject[i][2], megaBoxObject[i][3]);
 			continue; // Nastavi loop
@@ -671,73 +671,81 @@ hook OnPlayerDisconnect(playerid, reason)
 	return Y_HOOKS_CONTINUE_RETURN_1;
 }
 
+hook OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
+{
+	if(newkeys == KEY_YES)
+	{
+		if(playerJoinedHunger[playerid])
+		{
+			new bool:openedBox;
+			for(new box_id = 0; box_id < sizeof(boxObject); box_id++)
+			{
+				if(!IsPlayerInRangeOfPoint(playerid, 2.0, boxObject[box_id][0], boxObject[box_id][1], boxObject[box_id][2]))
+					continue; // Nastavi loop
+
+				if(gettime() < canOpenBox[playerid])
+				{
+					SendClientMessage(playerid, -1, "[HungerGames] Moras cekati 10 sekundi pre otvaranja druge kutije!");
+					break; // Zaustavi loop
+				}
+
+				new
+					weaponName[32],
+					randomWeapon = (random_int(17, 33) + 1),
+					randomAmmo = (random_int(5, 15));
+
+				// #TODO: Fix this > make it smarter.
+				if(GetPlayerWeapon(playerid) == randomWeapon) {
+					ResetPlayerWeapons(playerid);
+				}
+
+				GivePlayerWeapon(playerid, randomWeapon, randomAmmo);
+
+				GetWeaponName(randomWeapon, weaponName, sizeof(weaponName));
+
+				va_SendClientMessage(playerid, -1, "[HungerGames] Izvukao si %s iz kutije!", weaponName);
+
+				Timer_BoxMessage[playerid] = repeat BoxCountdown(playerid);
+				canOpenBox[playerid] = (gettime() + 10);
+
+				openedBox = true;
+
+				break; // Zaustavi loop
+			}
+
+			if(!openedBox)
+			{
+				for(new box_id = 0; box_id < sizeof(megaBoxObject); box_id++)
+				{
+					if(!IsPlayerInRangeOfPoint(playerid, 2.0, megaBoxObject[box_id][0], megaBoxObject[box_id][1], megaBoxObject[box_id][2]))
+						continue; // Nastavi loop
+
+					if(openedMegaBox[playerid])
+					{
+						SendClientMessage(playerid, -1, "[HungerGames] Vec si otvorio Mega Kutiju!");
+						break; // Zaustavi loop
+					}
+
+					SendClientMessage(playerid, -1, "Otvorio si Mega Kutiju!");
+
+					GivePlayerWeapon(playerid, 24, 10);
+					GivePlayerWeapon(playerid, 31, 30);
+
+					SetPlayerArmour(playerid, 30.0);
+
+					openedMegaBox[playerid] = true;
+
+					break; // Zaustavi loop
+				}
+			}
+		}
+	}
+	return 1;
+}
+
 // ---
 // Commands
 // ---
-
-YCMD:megakutija(playerid, params[], help)
-{
-	if(!playerJoinedHunger[playerid])
-		return SendClientMessage(playerid, -1, "[HungerGames] Nisi u Igrama Gladi!");
-
-	if(openedMegaBox[playerid])
-		return SendClientMessage(playerid, -1, "[HungerGames] Vec si otvorio Mega Kutiju!");
-
-	for(new box_id = 0; box_id < sizeof(megaBoxObject); box_id++)
-	{
-		if(!IsPlayerInRangeOfPoint(playerid, 2.0, megaBoxObject[box_id][0], megaBoxObject[box_id][1], megaBoxObject[box_id][2]))
-			continue; // Nastavi loop
-
-		SendClientMessage(playerid, -1, "Otvorio si Mega Kutiju!");
-
-		GivePlayerWeapon(playerid, 24, 10);
-		GivePlayerWeapon(playerid, 31, 30);
-
-		SetPlayerArmour(playerid, 30.0);
-
-		openedMegaBox[playerid] = true;
-
-		break; // Zaustavi loop
-	}
-	return COMMAND_OK;
-}
-
-YCMD:kutija(playerid, params[], help)
-{
-	if(!playerJoinedHunger[playerid])
-		return SendClientMessage(playerid, -1, "[HungerGames] Nisi u Igrama Gladi!");
-
-	if(gettime() < canOpenBox[playerid])
-		return SendClientMessage(playerid, -1, "[HungerGames] Moras cekati 10 sekundi pre otvaranja druge kutije!");
-
-	for(new box_id = 0; box_id < sizeof(boxObject); box_id++)
-	{
-		if(!IsPlayerInRangeOfPoint(playerid, 2.0, boxObject[box_id][0], boxObject[box_id][1], boxObject[box_id][2]))
-			continue; // Nastavi loop
-
-		new
-			weaponName[32],
-			randomWeapon = (random_int(17, 33) + 1),
-			randomAmmo = (random_int(5, 15));
-
-		// #TODO: Fix this > make it smarter.
-		if(GetPlayerWeapon(playerid) == randomWeapon) {
-			ResetPlayerWeapons(playerid);
-		}
-
-		GivePlayerWeapon(playerid, randomWeapon, randomAmmo);
-
-		GetWeaponName(randomWeapon, weaponName, sizeof(weaponName));
-
-		va_SendClientMessage(playerid, -1, "[HungerGames] Izvukao si %s iz kutije!", weaponName);
-
-		Timer_BoxMessage[playerid] = repeat BoxCountdown(playerid);
-		canOpenBox[playerid] = (gettime() + 10);
-
-		break; // Zaustavi loop
-	}
-	return COMMAND_OK;
-}
 
 YCMD:hgcount(playerid, params[], help)
 {
